@@ -54,6 +54,11 @@ export default class WardScene extends Phaser.Scene {
       this.input.on('pointerdown', () => (this.isFiring = true));
       this.input.on('pointerup', () => (this.isFiring = false));
 
+      // Dash state
+      this.isDashing = false;
+      this.dashUntil = 0;
+      this.iFramesUntil = 0;
+
       // Objects: shards, loot, enemies (minimal spawns as colored rectangles)
       this.roomGraphics = this.add.graphics();
       this.drawRooms();
@@ -119,6 +124,19 @@ export default class WardScene extends Phaser.Scene {
           this.time.delayedCall(b.lifetimeMs, () => bullet.destroy());
         }
         this.nextFireAt = time + this.weapon.fireRateMs;
+      }
+
+      // Dash
+      if (Phaser.Input.Keyboard.JustDown(this.keys.SPACE) && !this.isDashing) {
+        this.isDashing = true;
+        this.dashUntil = time + 120;
+        this.iFramesUntil = time + 300;
+        const dir = new Phaser.Math.Vector2(this.player.body.velocity.x, this.player.body.velocity.y).normalize();
+        if (dir.lengthSq() === 0) dir.setToPolar(this.input.activePointer.worldX - this.player.x, this.input.activePointer.worldY - this.player.y).normalize();
+        this.player.setVelocity(dir.x * (speed * 3), dir.y * (speed * 3));
+      }
+      if (this.isDashing && time > this.dashUntil) {
+        this.isDashing = false;
       }
 
       // Swap layers

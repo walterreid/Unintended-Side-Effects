@@ -17,6 +17,7 @@ export default class BootScene extends Phaser.Scene {
     }
   
     create() {
+      this.physics.world.gravity.set(0, 0);
       this.scene.start('MenuScene');
     }
   }

@@ -25,12 +25,13 @@ export function createRng(seed) {
 
 export function generateWardLayout(seed, options = {}) {
   const rng = createRng(seed);
-  const roomCount = options.roomCount ?? 8;
-  const gridSize = options.gridSize ?? 5; // 5x5 grid logical
+  const roomCount = options.roomCount ?? 9;
+  const gridSize = options.gridSize ?? 4; // smaller logical grid
   const rooms = [];
   const doors = [];
   const loot = [];
   const enemies = [];
+  const roomType = {}; // id -> 'start'|'combat'|'loot'|'event'|'boss'|'exit'
 
   // pick distinct logical coordinates for rooms
   const coords = new Set();
@@ -88,9 +89,33 @@ export function generateWardLayout(seed, options = {}) {
 
   // Simple loot and enemies placement
   for (const r of rooms) {
-    if (!shardRooms.find(s => s.id === r.id) && r.id !== bossRoom.id && r.id !== exitRoom.id) {
-      if (rng() < 0.4) loot.push({ type: 'weapon', roomId: r.id });
-      if (rng() < 0.5) enemies.push({ type: 'manifestation', roomId: r.id, count: 1 + Math.floor(rng() * 3) });
+    if (r.id === playerStart.id) {
+      roomType[r.id] = 'start';
+      continue;
+    }
+    if (r.id === bossRoom.id) {
+      roomType[r.id] = 'boss';
+      continue;
+    }
+    if (r.id === exitRoom.id) {
+      roomType[r.id] = 'exit';
+      continue;
+    }
+
+    // Event/loot/combat mix
+    const roll = rng();
+    if (roll < 0.2) {
+      roomType[r.id] = 'event';
+      if (rng() < 0.6) loot.push({ type: 'trait', roomId: r.id });
+      if (rng() < 0.4) loot.push({ type: 'consumable', roomId: r.id });
+    } else if (roll < 0.45) {
+      roomType[r.id] = 'loot';
+      if (rng() < 0.6) loot.push({ type: 'weapon', roomId: r.id });
+      if (rng() < 0.6) loot.push({ type: 'consumable', roomId: r.id });
+    } else {
+      roomType[r.id] = 'combat';
+      enemies.push({ type: 'manifestation', roomId: r.id, count: 1 + Math.floor(rng() * 2) });
+      if (rng() < 0.3) loot.push({ type: 'consumable', roomId: r.id });
     }
   }
 
@@ -101,9 +126,25 @@ export function generateWardLayout(seed, options = {}) {
     doors,
     loot,
     enemies,
+    roomType,
     playerStart,
     bossRoom,
     exitRoom
   };
+}
+
+export function buildAdjacency(doors) {
+  const neighbors = new Map();
+  const add = (a, b) => {
+    if (!neighbors.has(a)) neighbors.set(a, new Set());
+    neighbors.get(a).add(b);
+  };
+  for (const d of doors) {
+    add(d.from, d.to);
+    add(d.to, d.from);
+  }
+  const obj = {};
+  for (const [k, set] of neighbors.entries()) obj[k] = Array.from(set);
+  return obj;
 }
 

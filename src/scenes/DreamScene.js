@@ -26,8 +26,18 @@ export default class DreamScene extends Phaser.Scene {
       this.cursors = this.input.keyboard.createCursorKeys();
       this.keyQ = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.Q);
 
-      this.roomGraphics = this.add.graphics();
-      this.drawRooms();
+    this.roomGraphics = this.add.graphics();
+    this.drawRooms();
+
+    // Fewer enemies but dream-tinted
+    this.enemies = this.physics.add.group();
+    for (const e of this.layout.enemies) {
+      if (Math.random() < 0.5) continue; // reduce count in dream
+      const { x, y } = this.roomCenter(e.roomId);
+      const rect = this.add.rectangle(x, y, 18, 18, 0x8888ff);
+      this.physics.add.existing(rect);
+      this.enemies.add(rect);
+    }
     }
   
     update() {

@@ -1,8 +1,8 @@
 # Unintended Side Effects: Night Shift (v0.1)
 
-A 2D, seed‑driven roguelite set in a haunted hospital where your **mind is the map**. Explore procedurally generated wards, shift between **Awake** and **Asleep** layers, and wield clinical‑coded “treatments” against very real demons. Think: *Mooncrash (Prey 2017) in 2D* meets *hospital psych‑horror* — with emoji‑aided UI when in doubt. 😶‍🌫️💊
-
----
+A 2D top-down, room-based roguelite set in a haunted hospital where your **mind is the map**.  
+Explore procedurally generated wards, swap between **Awake** and **Asleep** layers, and collect clinical-coded “treatments” that alter your reality in unpredictable ways.  
+Think *Enter the Gungeon* pace and navigation, *Binding of Isaac* build variety, and a **dual-layer Awake/Dream mechanic** at the core.
 
 ## Play
 
@@ -12,130 +12,98 @@ A 2D, seed‑driven roguelite set in a haunted hospital where your **mind is the
   * `npx serve --single --listen 8080` → visit `http://localhost:8080`
 * Tested targets: Chromium‑based desktop browsers and Safari desktop.
 
+
+---
+
 ## Premise
+“You’re awake.” The PA crackles overhead, but the halls are wrong. The lights hum like bees. You carry a chart with someone else’s name.  
+To escape, you must recover **3 Coping Shards**, confront the **ward boss**, and discharge yourself before the **Night Audit** seals the hospital forever.
 
-“You’re awake.” The hospital PA crackles. Except the corridors are wrong, fluorescent light hums like a hive, and a **code blue** echoes from a floor that doesn’t exist. You carry a chart with someone else’s name. To get out, you must stabilize the **patient** (you), recover your scattered **Coping Shards**, and discharge yourself before the **Night Audit** seals the doors at dawn.
+- **Awake Layer**: Clinical reality — security doors, med carts, alarms.
+- **Asleep Layer**: Surreal dream logic — warped rooms, strange loot, demons given shape.
+- **Goal**: Gather shards, face the boss, escape before the audit countdown hits zero.
 
-* **Awake Layer**: Clinical reality — alarms, access badges, meds, staff rooms, locked doors.
-* **Asleep Layer**: Dream logic — impossible loops, memory echoes, demons given shape.
-* **Goal**: Gather shards, confront a ward boss, reconcile your chart, and reach the exit **before the Night Audit countdown hits 0**.
+---
 
-## Controls (default)
+## Core Loop
+1. **Admit**: Spawn in a procedurally generated ward with seed-based layout.
+2. **Explore & Loot**: Clear rooms, find weapons, traits, and consumables.
+3. **Shift Layers**: Swap Awake/Asleep to solve room puzzles, access locked loot, or fight enemies in their domain.
+4. **Collect 3 Coping Shards**: Triggers boss spawn.
+5. **Defeat Boss**: Starts the Night Audit countdown.
+6. **Escape**: Reach the exit elevator before time expires.
 
-* **Move**: WASD / Arrow Keys
-* **Jump**: Space (traits can grant double/triple jumps)
-* **Sprint**: Shift
-* **Aim & Shoot**: Mouse / Left‑Click (hold to charge if trait allows)
-* **Blink / Dash**: Right‑Click (trait‑gated)
-* **Layer Shift (Awake⇄Asleep)**: Q (consumes **Insight**)
-* **Interact**: E (doors, terminals, med carts)
-* **Pause**: P  •  **Restart Run**: R
+---
 
-## Game Loop
+## Controls (Top-Down)
+- **Move**: WASD / Arrow Keys
+- **Aim & Shoot**: Mouse
+- **Dash/Dodge**: Space (brief i-frames)
+- **Layer Swap**: Q (consumes Insight)
+- **Interact**: E (doors, loot, NPCs)
+- **Pause**: P
 
-1. **Admit**: Spawn at **Triage** with a randomized loadout seeded by the run.
-2. **Stabilize**: Collect **3 Coping Shards** (🧩) scattered through the current ward.
-3. **Confront**: A ward boss manifests after the final shard.
-4. **Discharge**: The **Night Audit** begins (global collapse). Sprint for the exit elevator (⬇️) before time expires.
-
-### Session Types
-
-* **Custom Seed**: Enter any string for deterministic generation.
-* **Continue Last**: Re‑run your last seed.
-* **Daily Rotation**: Uses current **New York date** (America/New\_York) as a shared daily seed.
-* **Story Start**: Forces the tutorial set — begins with **“You’re awake.”**
-
-## Procedural Generation
-
-* **Rooms & Flow**: Weighted graph of wards with alternate Awake/Asleep variants; secret vents and maintenance chutes connect non‑adjacent spaces.
-* **Locks & Keys**:
-
-  * **Badge Access** (🔑): Color‑coded by department (ICU, Radiology, Pharmacy, Sleep Lab).
-  * **Consent Forms** (📄): Single‑use paper keys that open ethical locks.
-  * **Dream Sigils** (✨): Asleep‑only keys that “soft‑unlock” reality doors after a layer shift.
-* **Loot**: Med carts, crash carts, supply closets, lost & found, dream caches.
-* **Events**: Code Blue chases, power flickers, false alarms, memory echos (as miniboss rooms).
+---
 
 ## Weapons — “Treatments”
+Clinical-coded firearms and devices. Examples:
+- **Mood Stabilizer**: Reliable semi-auto.
+- **Anxiolytic**: High ROF SMG; reduces stress build-up while firing.
+- **Beta Blocker**: Marksman pistol; slows time while aiming.
+- **Electroconvulsive Arc**: Short-range arc gun; stuns enemies.
+- **Placebo**: Low damage, high trait synergy.
 
-Clinical‑coded guns with subtle side‑effects. Names are intentionally sterile; effects are anything but.
-
-* **Mood Stabilizer** (sidearm): Reliable semi‑auto. 🎯
-* **Anxiolytic** (SMG): High ROF; recoil suppresses panic (reduces screen shake) while firing.
-* **SSRI Burst** (burst pistol): Delayed strength—damage ramps the longer you stay on target.
-* **Beta Blocker** (marksman): Slows time slightly on ADS; heart‑rate crosshair steadies.
-* **Electroconvulsive Arc** (shotgun): Wide arc; stuns on close contact; drains Insight.
-* **Placebo** (???): Low base damage, high synergy with trait procs. Sometimes… it just works. 😉
+---
 
 ## Traits — “Unintended Side Effects”
+Stackable positive/negative effects that define your build.
+- **Titration**: Stats shift with each pickup; stabilize at stations to lock in.
+- **Therapeutic Window**: Bonus damage when HP is between 40–70%.
+- **Withdrawal**: Reloads hurt you but lower dash cooldown.
+- **REM Thief**: Dream kills restore Insight.
+- **White Noise**: Standing near machines grants crit chance.
 
-30+ stackable modifiers. A few examples:
+---
 
-* **Titration**: Each pickup slightly alters stats; stabilize at stations to lock gains.
-* **Therapeutic Window**: Bonus damage when health is between 40–70%.
-* **Withdrawal**: Reloads hurt but speed up dash cooldown.
-* **Cross‑Taper**: Swapping weapons grants a brief damage buff.
-* **REM Thief**: On Asleep kills, gain Insight; Awake kills spawn a guilt wisp.
-* **Night Float**: +1 air jump; fall speed reduced after a sprint.
-* **White Noise**: Standing near machines (beeping props) grants focus (crit chance).
-* **Second Opinion**: First death each ward rewinds 5 seconds.
-* **Chart Fragment**: Collect 3 to unlock a hidden diagnosis ending.
+## Loot Types
+- **Weapons** (replace or swap with current)
+- **Traits** (stackable build modifiers)
+- **Consumables** (medkits, Insight refills, one-use buffs)
+- **Keys/Special Items** (badge access, dream sigils)
 
-## Resources & Meters
+---
 
-* **Health (❤️)**: Standard HP; medkits and vending machines restore.
-* **Insight (🧠)**: Spent to **shift layers**; recharges via REM Thief, blue candles, dream caches.
-* **Audit Timer (⏳)**: Triggers on boss spawn and at scripted events.
-* **Stress (📈)**: Builds during alarms; increases enemy aggression but boosts crit chance.
+## Procedural Generation
+- Seed-based, consistent for the same run.
+- Graph of rooms: combat, loot, story/event, boss arena.
+- Awake/Dream variants share geometry but differ in enemies and interactables.
 
-## Enemies — “Manifestations”
+---
 
-* **Rumination**: Orbiting thought‑mites; re‑aggro when ignored.
-* **Panic**: Sprinters that cause audio distortion on proximity.
-* **Anhedonia**: Tanky, slow; drains color saturation while nearby.
-* **Inner Critic**: Ranged caster that debuffs your aim.
-* **Catatonia**: Dormant until you jump near it; then grabs.
-* **Night Auditor** (global): Appears during collapse as an invulnerable chaser in some modes.
+## Enemies
+- Designed for slower, tactical combat — not bullet hell.
+- Examples:
+  - **Rumination**: Orbiting thought-mites.
+  - **Panic**: Sprint attackers that distort audio on approach.
+  - **Anhedonia**: Drains color saturation while near.
+  - **Inner Critic**: Debuffs aim.
 
-### Ward Bosses
+---
 
-* **The Administrator** (Admissions): Bureaucratic hydra; cut one head, two forms rise.
-* **The Null Ward** (Radiology): Cloaks in film grain; only visible between pulses.
-* **The Archivist** (Records): Hurls redacted pages; weak to Placebo. 😉
+## Story/Intrigue
+- Short text overlays during key moments (e.g., shard pickups, boss defeat).
+- Environmental storytelling via props and room dressing.
+- Dream versions of rooms reveal hidden messages.
 
-## Biomes / Wards
+---
 
-Admissions • ICU • Radiology • Pharmacy • Maintenance Tunnels • Sleep Lab (Awake/Asleep variants)
-
-## Story Structure
-
-* **Act I — Orientation**: “You’re awake.” Learn systems, acquire your first shard.
-* **Act II — Intake**: Choose routes; discover your chart isn’t yours.
-* **Act III — Reconciliation**: Assemble the truth; the hospital is your mind’s ledger.
-* **Endings**:
-
-  * **Discharge**: Escape before the audit.
-  * **Readmission**: Fail the audit; seed mutates (harder next run).
-  * **Correct Chart**: Find all Chart Fragments and confront the true name.
-
-## Menus & Options
-
-* **Seed Input** with save/restore
-* **Daily Challenge** (America/New\_York date)
-* **Accessibility**: Toggle screen shake, high‑contrast sprites, subtitles, dyslexia‑friendly font.
-* **Audio**: SFX/Music sliders; white‑noise comfort track option.
-* **Difficulty**: Normal / Hard / Night Shift (audit starts earlier, more stress events)
-
-## Run Codes
-
-End‑of‑run screen shows a **Base64 “Discharge Summary”** with seed, ward order, boss, traits, meters, time, result. Shareable only (no import).
 
 ## Tech
+- Phaser 3.60.x via npm (Vite build).
+- ES module imports.
+- Modular scene/system structure.
 
-* **Engine**: Phaser `3.60.x` (Arcade Physics) via CDN.
-* **Language**: ES modules; single‑page bootstrap with modular scene files.
-* **Storage Keys**: `use_meta_v01`, `use_last_seed_v01`, `use_options_v01`.
-* **Sprites/UI**: Minimalist shapes + emoji fallbacks for clarity on first pass.
+---
 
 ### Suggested Folder Structure
 
@@ -164,12 +132,36 @@ End‑of‑run screen shows a **Base64 “Discharge Summary”** with seed, ward
     /sprites
 ```
 
-## Roadmap
+## Phase Roadmap (Lite)
 
-* v0.1: Core loop, two layers, 12 traits, 6 weapons, 12 enemies, 2 bosses, one discharge ending.
-* v0.2: Daily Challenge, chart fragments, archivist boss, stress/audit tuning.
-* v0.3: Meta unlocks (new ward: **Sleep Lab**), “Night Shift” difficulty, Placebo synergies.
-* v0.4: Assist options, high‑contrast pack, controller support.
+### Phase 1 — Core Playable Loop
+- Top-down movement, dash, shooting.
+- Procedural rooms with doors.
+- Awake/Dream swap (visual + loot/enemy changes).
+- Weapons, traits, and consumable pickups.
+- 1 boss, Night Audit countdown, win/lose screen.
+
+### Phase 2 — Content Expansion
+- +2 bosses, more weapon archetypes.
+- Additional traits (positive/negative).
+- First pass on story/event rooms.
+
+### Phase 3 — Layer Integration
+- Awake/Dream puzzles (locked loot, alternate paths).
+- Insight economy balance.
+- Layer-specific enemies.
+
+### Phase 4 — Narrative & Intrigue
+- Environmental storytelling.
+- Branching room events with choices.
+- Chart Fragment system (unlock secret ending).
+
+### Phase 5 — Polish & Meta
+- Daily seed mode.
+- Meta progression (unlock new wards, traits).
+- Accessibility options, controller support.
+
+---
 
 ## Troubleshooting
 
