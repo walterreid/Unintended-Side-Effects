@@ -6,11 +6,15 @@ Think *Enter the Gungeon* pace and navigation, *Binding of Isaac* build variety,
 
 ## Play
 
-* Open `index.html` in a modern desktop browser or serve locally (recommended for audio/clipboard APIs):
+- Local development (hot reload):
+  - `npm install`
+  - `npm run dev` → open the printed Local URL
+  - Notes: Uses Vite to resolve `import Phaser from 'phaser'` and other ESM imports.
 
-  * `python3 -m http.server 8080` → visit `http://localhost:8080`
-  * `npx serve --single --listen 8080` → visit `http://localhost:8080`
-* Tested targets: Chromium‑based desktop browsers and Safari desktop.
+- Production (GitHub Pages):
+  - Live build: [walterreid.github.io/Unintended-Side-Effects](https://walterreid.github.io/Unintended-Side-Effects/)
+  - Build locally: `npm run build` → outputs to `docs/` (served by Pages)
+  - Tested targets: Chromium‑based desktop browsers and Safari desktop.
 
 
 ---
@@ -99,9 +103,30 @@ Stackable positive/negative effects that define your build.
 
 
 ## Tech
-- Phaser 3.60.x via npm (Vite build).
+- Phaser 3.60.x via npm (Vite build; ESM only, no CDN scripts).
 - ES module imports.
 - Modular scene/system structure.
+
+### Hosting & Build (GitHub Pages)
+
+- Vite config sets `base: '/Unintended-Side-Effects/'` and outputs to `docs/` so Pages can serve from `main/docs`.
+- Deploy steps:
+  1. `npm run build` → generates `docs/index.html` and assets.
+  2. Commit `docs/` and push to `main`.
+  3. In repo Settings → Pages: Source = “Deploy from a branch”, Branch = `main`, Folder = `/docs`.
+  4. Visit: `https://<username>.github.io/Unintended-Side-Effects/`.
+- If you rename the repo, update `vite.config.js` `base` to match (`'/' + repoName + '/'`).
+- Do not use `<script>` CDN tags in `index.html`. Phaser is bundled from npm by Vite.
+
+### Current Build Specifics
+
+- Top‑down movement; gravity disabled in `BootScene`.
+- Dash on Space with brief i‑frames.
+- Awake/Dream share geometry; Dream spawns fewer enemies and uses tinted visuals.
+- Procedural layout includes room types: `start`, `combat`, `loot`, `event`, `boss`, `exit`.
+- Weapons archetypes: pistol, SMG, marksman, shotgun, beam, charge‑shot (beam/charge are represented with simple placeholders for now).
+- Traits system provides starting modifiers; seed is persisted for quick “Continue Last Run”.
+- HUD (`UIScene`) shows HP/Insight/Audit placeholder and loadout (weapon, shards, traits).
 
 ---
 
