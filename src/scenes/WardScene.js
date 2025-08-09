@@ -25,19 +25,22 @@ export default class WardScene extends Phaser.Scene {
       this.layerSwapCooldownUntil = 0;
       this.cameras.main.setBackgroundColor('#101418');
       this.add.text(10, 10, `Awake Layer | Seed: ${this.seed}`, { fontSize: '14px', color: '#fff' });
-
+  
       // Player and stats
       const baseStats = { moveSpeed: 160, projectileSpeed: 600, maxHealth: 100, insightRegenPerMin: 0, weaponSpreadDeg: 0, auditTimerStart: 60 };
       this.traits = rollStartingTraits(this.rng);
       this.stats = applyTraitsToStats(baseStats, this.traits);
       this.health = this.stats.maxHealth;
       this.insight = 0;
+      this.roomState = {}; // id -> { cleared, shardsCollected: number, lootTaken: number }
+      this.bossUnlocked = false;
+      this.bossDefeated = false;
 
       const startX = 400; // center of first room
       const startY = 300;
       this.player = this.physics.add.sprite(startX, startY, 'player').setScale(0.5);
       this.player.setCollideWorldBounds(true);
-
+  
       // Controls
       this.cursors = this.input.keyboard.createCursorKeys();
       this.keys = this.input.keyboard.addKeys({
@@ -81,37 +84,8 @@ export default class WardScene extends Phaser.Scene {
         this.miniMap.setVisible(this.miniMapVisible);
       });
 
-      this.shards = this.physics.add.group();
-      for (const l of this.layout.loot.filter(l => l.type === 'shard')) {
-        const { x, y } = this.roomCenter(l.roomId);
-        const shard = this.add.circle(x, y, 8, 0x66ccff);
-        this.physics.add.existing(shard);
-        this.shards.add(shard);
-      }
-
-      this.physics.add.overlap(this.player, this.shards, (player, shard) => {
-        shard.destroy();
-        this.collectedShards = (this.collectedShards || 0) + 1;
-        this.showBeat(`Coping Shard ${this.collectedShards}/3`);
-        this.updateHUD();
-        if (this.collectedShards >= 3) this.spawnBossDoor();
-      });
-
-      this.enemies = this.physics.add.group();
-      for (const e of this.layout.enemies) {
-        const { x, y } = this.roomCenter(e.roomId);
-        for (let i = 0; i < e.count; i++) {
-          const rect = this.add.rectangle(x + (Math.random() * 40 - 20), y + (Math.random() * 40 - 20), 18, 18, 0xff5555);
-          this.physics.add.existing(rect);
-          this.enemies.add(rect);
-        }
-      }
-
-      // Simple bullet-enemy collisions
-      this.physics.add.overlap(this.bullets, this.enemies, (bullet, enemy) => {
-        bullet.destroy();
-        enemy.destroy();
-      });
+      // Per-room content spawner
+      this.spawnRoomContent();
 
       // UI
       if (!this.scene.isActive('UIScene')) this.scene.launch('UIScene', { seed: this.seed });
@@ -167,6 +141,16 @@ export default class WardScene extends Phaser.Scene {
       }
 
       // TODO: enemies basic chase later
+      if (this.activeEnemies) {
+        const chaseSpeed = 60;
+        this.activeEnemies.getChildren().forEach((enemy) => {
+          if (!enemy.body) return;
+          const dx = this.player.x - enemy.x;
+          const dy = this.player.y - enemy.y;
+          const len = Math.hypot(dx, dy) || 1;
+          enemy.body.setVelocity((dx / len) * chaseSpeed, (dy / len) * chaseSpeed);
+        });
+      }
     }
 
     roomCenter(id) {
@@ -215,7 +199,10 @@ export default class WardScene extends Phaser.Scene {
       for (const d of neighborDefs) {
         const nid = `${cx + d.dx},${cy + d.dy}`;
         const connected = this.layout.adjacency[this.currentId]?.includes(nid);
-        const unlocked = true; // Phase-1: always unlocked until boss/audit logic layered in
+        // Lock boss door until shards >= 3, lock exit until boss defeated, lock neighbors that don't exist
+        let unlocked = connected;
+        if (unlocked && nid === this.layout.bossRoom.id && !this.bossUnlocked) unlocked = false;
+        if (unlocked && nid === this.layout.exitRoom.id && !this.bossDefeated) unlocked = false;
         const color = connected && unlocked ? 0x27ae60 : 0xe74c3c;
         const w = d.dir === 'N' || d.dir === 'S' ? 60 : 20;
         const h = d.dir === 'N' || d.dir === 'S' ? 20 : 60;
@@ -243,6 +230,7 @@ export default class WardScene extends Phaser.Scene {
         this.drawCurrentRoom();
         this.drawDoors();
         this.visited.add(id);
+        this.spawnRoomContent();
         this.drawMiniMap();
         this.cameras.main.fadeIn(200, 0, 0, 0);
         this.transitioning = false;
@@ -259,12 +247,8 @@ export default class WardScene extends Phaser.Scene {
     }
 
     spawnBossDoor() {
-      const { x, y } = this.roomCenter(this.layout.bossRoom.id);
-      const door = this.add.rectangle(x, y, 24, 48, 0x33ff33);
-      this.physics.add.existing(door);
-      this.physics.add.overlap(this.player, door, () => {
-        this.scene.start('BossScene', { seed: this.seed, entry: { x, y } });
-      });
+      this.bossUnlocked = true;
+      this.drawDoors();
       this.showBeat('The ward boss stirs…');
     }
 
@@ -305,6 +289,121 @@ export default class WardScene extends Phaser.Scene {
         const color = isCurrent ? 0x27ae60 : (visited ? 0x2980b9 : 0x34495e);
         g.fillStyle(color, 1);
         g.fillRect(x, y, cell, cell);
+      }
+    }
+
+    spawnRoomContent() {
+      // Cleanup previous room content
+      if (this.shards) this.shards.clear(true, true);
+      if (this.activeLoot) this.activeLoot.clear(true, true);
+      if (this.activeEnemies) this.activeEnemies.clear(true, true);
+      if (this.bossRect) { this.bossRect.destroy(); this.bossRect = null; }
+      if (this.exitBed) { this.exitBed.destroy(); this.exitBed = null; }
+
+      const id = this.currentId;
+      const type = this.layout.roomType[id] || 'combat';
+
+      // Shards
+      this.shards = this.physics.add.group();
+      for (const l of this.layout.loot.filter(l => l.type === 'shard' && l.roomId === id)) {
+        if (this.roomState[id]?.shardsCollected) continue;
+        const shard = this.add.circle(400 + (Math.random()*120-60), 300 + (Math.random()*120-60), 8, 0xffe066);
+        this.physics.add.existing(shard);
+        this.shards.add(shard);
+      }
+      this.physics.add.overlap(this.player, this.shards, (player, shard) => {
+        shard.destroy();
+        const st = this.roomState[id] = this.roomState[id] || {};
+        st.shardsCollected = (st.shardsCollected || 0) + 1;
+        this.collectedShards = (this.collectedShards || 0) + 1;
+        if (this.collectedShards >= 3 && !this.bossUnlocked) this.spawnBossDoor();
+        this.showBeat(`Coping Shard ${this.collectedShards}/3`);
+        this.updateHUD();
+      });
+
+      // Loot pickups
+      this.activeLoot = this.physics.add.group();
+      for (const l of this.layout.loot.filter(l => l.roomId === id && l.type !== 'shard')) {
+        const color = l.type === 'weapon' ? 0x9b59b6 : (l.type === 'trait' ? 0x2ecc71 : 0xf1c40f);
+        const r = this.add.rectangle(400 + (Math.random()*160-80), 300 + (Math.random()*120-60), 16, 16, color);
+        this.physics.add.existing(r);
+        r.pickupType = l.type;
+        this.activeLoot.add(r);
+      }
+      this.physics.add.overlap(this.player, this.activeLoot, (player, r) => {
+        const t = r.pickupType;
+        r.destroy();
+        if (t === 'weapon') {
+          // Randomly choose one of 3 base weapons
+          const kinds = [WeaponKind.MoodStabilizer, WeaponKind.AnxiolyticSMG, WeaponKind.BetaBlocker];
+          this.weapon = createWeapon(kinds[Math.floor(this.rng()*kinds.length)]);
+          this.showBeat(`Picked up ${this.weapon.name}`);
+        } else if (t === 'trait') {
+          const traitNames = ['FleetOfFoot','KeenEye','IronWill','FocusedBreath'];
+          const chosen = traitNames[Math.floor(this.rng()*traitNames.length)];
+          this.traits.push(chosen);
+          const baseStats = { moveSpeed: 160, projectileSpeed: 600, maxHealth: 100, insightRegenPerMin: 0, weaponSpreadDeg: 0, auditTimerStart: 60 };
+          this.stats = applyTraitsToStats(baseStats, this.traits);
+          this.showBeat(`Trait gained`);
+        } else if (t === 'consumable') {
+          if (Math.random() < 0.5) { this.health = Math.min(this.stats.maxHealth, this.health + 25); this.showBeat('Medkit +25'); }
+          else { this.insight += 1; this.showBeat('Insight +1'); }
+        }
+        this.updateHUD();
+      });
+
+      // Enemies
+      this.activeEnemies = this.physics.add.group();
+      const roomEnemy = this.layout.enemies.find(e => e.roomId === id);
+      const count = roomEnemy ? roomEnemy.count : (type === 'combat' ? 2 : 0);
+      for (let i = 0; i < count; i++) {
+        const rect = this.add.rectangle(400 + (Math.random()*220-110), 300 + (Math.random()*160-80), 18, 18, 0xf39c12);
+        this.physics.add.existing(rect);
+        this.activeEnemies.add(rect);
+      }
+      this.physics.add.overlap(this.bullets, this.activeEnemies, (bullet, enemy) => {
+        bullet.destroy();
+        enemy.destroy();
+        if (this.activeEnemies.countActive(true) === 0) {
+          const st = this.roomState[id] = this.roomState[id] || {};
+          st.cleared = true;
+          this.showBeat('Room cleared');
+          this.drawDoors();
+        }
+      });
+
+      // Boss & Exit
+      if (id === this.layout.bossRoom.id && this.bossUnlocked && !this.bossDefeated) {
+        const boss = this.add.rectangle(400, 260, 60, 60, 0xff00aa);
+        this.physics.add.existing(boss);
+        boss.health = 200;
+        this.bossRect = boss;
+        this.physics.add.overlap(this.bullets, boss, (b, target) => {
+          b.destroy();
+          target.health -= 10;
+          if (target.health <= 0) {
+            target.destroy();
+            this.bossDefeated = true;
+            this.showBeat('Boss defeated! Find the bed to wake.');
+            this.drawDoors();
+          }
+        });
+      }
+
+      if (id === this.layout.exitRoom.id && this.bossDefeated) {
+        this.exitBed = this.add.rectangle(400, 300, 120, 50, 0x3498db);
+        this.physics.add.existing(this.exitBed, true);
+        this.add.text(400, 260, 'Bed (E) — Wake', { fontSize: '14px', color: '#fff' }).setOrigin(0.5);
+        const onE = () => {
+          if (Phaser.Geom.Intersects.RectangleToRectangle(this.player.getBounds(), this.exitBed.getBounds())) {
+            this.input.keyboard.off('keydown-E', onE);
+            this.cameras.main.fadeOut(400, 0, 0, 0);
+            this.cameras.main.once(Phaser.Cameras.Scene2D.Events.FADE_OUT_COMPLETE, () => {
+              this.scene.start('StoryScene', { seed: this.seed });
+            });
+          }
+        };
+        this.input.keyboard.on('keydown-E', onE);
       }
     }
   }
