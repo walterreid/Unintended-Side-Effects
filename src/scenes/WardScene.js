@@ -168,10 +168,23 @@ export default class WardScene extends Phaser.Scene {
       this.roomGraphics.fillStyle(0x1c1f24, 1);
       this.roomGraphics.fillRect(0, 0, 800, 600);
       this.roomGraphics.fillStyle(0x000000, 1);
-      this.roomGraphics.fillRect(0, 0, 800, 10);
-      this.roomGraphics.fillRect(0, 590, 800, 10);
-      this.roomGraphics.fillRect(0, 0, 10, 600);
-      this.roomGraphics.fillRect(790, 0, 10, 600);
+      const t = 16;
+      this.roomGraphics.fillRect(0, 0, 800, t);
+      this.roomGraphics.fillRect(0, 600 - t, 800, t);
+      this.roomGraphics.fillRect(0, 0, t, 600);
+      this.roomGraphics.fillRect(800 - t, 0, t, 600);
+
+      // Physical wall bodies (invisible)
+      if (!this.walls) {
+        this.walls = [
+          this.add.rectangle(400, t / 2, 800, t, 0x000000).setAlpha(0.0001),
+          this.add.rectangle(400, 600 - t / 2, 800, t, 0x000000).setAlpha(0.0001),
+          this.add.rectangle(t / 2, 300, t, 600, 0x000000).setAlpha(0.0001),
+          this.add.rectangle(800 - t / 2, 300, t, 600, 0x000000).setAlpha(0.0001)
+        ];
+        this.walls.forEach(w => this.physics.add.existing(w, true));
+        this.physics.add.collider(this.player, this.walls);
+      }
     }
 
     drawDoors() {

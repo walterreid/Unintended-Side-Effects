@@ -11,8 +11,20 @@ export default class StoryScene extends Phaser.Scene {
     const seed = data?.seed || 'default-seed';
     this.cameras.main.setBackgroundColor('#1c1f24');
     const floor = this.add.rectangle(400, 300, 800, 600, 0x1c1f24);
+    const wallThickness = 16;
     const walls = this.add.graphics();
-    walls.fillStyle(0x000000, 1); walls.fillRect(0, 0, 800, 10); walls.fillRect(0, 590, 800, 10); walls.fillRect(0, 0, 10, 600); walls.fillRect(790, 0, 10, 600);
+    walls.fillStyle(0x000000, 1);
+    walls.fillRect(0, 0, 800, wallThickness);
+    walls.fillRect(0, 600 - wallThickness, 800, wallThickness);
+    walls.fillRect(0, 0, wallThickness, 600);
+    walls.fillRect(800 - wallThickness, 0, wallThickness, 600);
+
+    // Physical wall colliders
+    this.topWall = this.add.rectangle(400, wallThickness / 2, 800, wallThickness, 0x000000).setAlpha(0.0001);
+    this.bottomWall = this.add.rectangle(400, 600 - wallThickness / 2, 800, wallThickness, 0x000000).setAlpha(0.0001);
+    this.leftWall = this.add.rectangle(wallThickness / 2, 300, wallThickness, 600, 0x000000).setAlpha(0.0001);
+    this.rightWall = this.add.rectangle(800 - wallThickness / 2, 300, wallThickness, 600, 0x000000).setAlpha(0.0001);
+    [this.topWall, this.bottomWall, this.leftWall, this.rightWall].forEach(w => this.physics.add.existing(w, true));
 
     this.add.text(400, 60, "Opening Patient Room", { fontSize: '18px', color: '#fff' }).setOrigin(0.5);
     this.add.text(400, 90, 'WASD to move · E to interact · Q swaps layers later', { fontSize: '14px', color: '#aaa' }).setOrigin(0.5);
@@ -68,6 +80,7 @@ export default class StoryScene extends Phaser.Scene {
     this.lockedDoor = mk(760, 300, 30, 120, 0xe74c3c, 'Locked Door', () => this.overlay('The door is locked during orientation.'));
 
     this.physics.add.collider(this.player, [this.bed.r, this.desk.r, this.tv.r, this.lockedDoor.r]);
+    this.physics.add.collider(this.player, [this.topWall, this.bottomWall, this.leftWall, this.rightWall]);
 
     this.input.keyboard.on('keydown-E', () => {
       for (const it of [this.bed, this.desk, this.tv, this.lockedDoor]) {
@@ -77,6 +90,16 @@ export default class StoryScene extends Phaser.Scene {
         }
       }
     });
+  }
+
+  update() {
+    if (!this.player) return;
+    const speed = 160;
+    this.player.setVelocity(0, 0);
+    if (this.cursors.left.isDown || this.keys.A.isDown) this.player.setVelocityX(-speed);
+    if (this.cursors.right.isDown || this.keys.D.isDown) this.player.setVelocityX(speed);
+    if (this.cursors.up.isDown || this.keys.W.isDown) this.player.setVelocityY(-speed);
+    if (this.cursors.down.isDown || this.keys.S.isDown) this.player.setVelocityY(speed);
   }
 
   overlay(text) {
