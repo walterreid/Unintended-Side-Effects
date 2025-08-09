@@ -199,18 +199,20 @@ export default class WardScene extends Phaser.Scene {
       for (const d of neighborDefs) {
         const nid = `${cx + d.dx},${cy + d.dy}`;
         const connected = this.layout.adjacency[this.currentId]?.includes(nid);
-        // Lock boss door until shards >= 3, lock exit until boss defeated, lock neighbors that don't exist
-        let unlocked = connected;
+        // Only render doors that actually connect to another room
+        if (!connected) continue;
+        // Lock boss door until shards >= 3, lock exit until boss defeated
+        let unlocked = true;
         if (unlocked && nid === this.layout.bossRoom.id && !this.bossUnlocked) unlocked = false;
         if (unlocked && nid === this.layout.exitRoom.id && !this.bossDefeated) unlocked = false;
-        const color = connected && unlocked ? 0x27ae60 : 0xe74c3c;
+        const color = unlocked ? 0x27ae60 : 0xe74c3c;
         const w = d.dir === 'N' || d.dir === 'S' ? 60 : 20;
         const h = d.dir === 'N' || d.dir === 'S' ? 20 : 60;
         const rect = this.add.rectangle(d.x, d.y, w, h, color);
         this.physics.add.existing(rect, true);
         this.doors.push(rect);
-        this.add.text(d.x, d.y - (h / 2) - 12, connected && unlocked ? 'Door (unlocked)' : 'Door (locked)', { fontSize: '12px', color: '#fff' }).setOrigin(0.5);
-        if (connected && unlocked) this.physics.add.overlap(this.player, rect, () => this.transitionRoom(nid, d.dir));
+        this.add.text(d.x, d.y - (h / 2) - 12, unlocked ? 'Door (unlocked)' : 'Door (locked)', { fontSize: '12px', color: '#fff' }).setOrigin(0.5);
+        if (unlocked) this.physics.add.overlap(this.player, rect, () => this.transitionRoom(nid, d.dir));
       }
     }
 

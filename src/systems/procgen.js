@@ -112,11 +112,11 @@ export function generateWardLayout(seed, options = {}) {
     const shuffled = [...rooms].sort(() => rng() - 0.5);
     playerStart = rooms[0];
     bossRoom = shuffled[0];
-    shardRooms = shuffled.slice(1, 4);
+    shardRooms = []; // will set after adjacency is known
     exitRoom = shuffled[4] || rooms[rooms.length - 1];
   }
 
-  for (const r of shardRooms) loot.push({ type: 'shard', roomId: r.id });
+  // shards will be assigned after we build adjacency
 
   // Simple loot and enemies placement
   for (const r of rooms) {
@@ -150,6 +150,25 @@ export function generateWardLayout(seed, options = {}) {
     }
   }
 
+  const adjacency = buildAdjacency(doors);
+
+  // Choose shard rooms reachable from start without passing through the boss room
+  const reachable = new Set();
+  const queue = [playerStart.id];
+  while (queue.length) {
+    const cur = queue.shift();
+    if (cur === bossRoom.id) continue; // do not traverse into boss for shard access
+    if (reachable.has(cur)) continue;
+    reachable.add(cur);
+    for (const n of adjacency[cur] || []) {
+      if (!reachable.has(n) && n !== bossRoom.id) queue.push(n);
+    }
+  }
+  const candidates = rooms.filter(r => reachable.has(r.id) && r.id !== playerStart.id && r.id !== exitRoom.id);
+  const shuffledForShards = [...candidates].sort(() => rng() - 0.5);
+  shardRooms = shuffledForShards.slice(0, 3);
+  for (const r of shardRooms) loot.push({ type: 'shard', roomId: r.id });
+
   return {
     seed,
     rooms,
@@ -160,7 +179,7 @@ export function generateWardLayout(seed, options = {}) {
     playerStart,
     bossRoom,
     exitRoom,
-    adjacency: buildAdjacency(doors)
+    adjacency
   };
 }
 
