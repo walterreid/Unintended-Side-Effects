@@ -46,7 +46,8 @@ export default class WardScene extends Phaser.Scene {
         D: Phaser.Input.Keyboard.KeyCodes.D,
         Q: Phaser.Input.Keyboard.KeyCodes.Q,
         E: Phaser.Input.Keyboard.KeyCodes.E,
-        SPACE: Phaser.Input.Keyboard.KeyCodes.SPACE
+        SPACE: Phaser.Input.Keyboard.KeyCodes.SPACE,
+        M: Phaser.Input.Keyboard.KeyCodes.M
       });
 
       // Weapons
@@ -68,6 +69,17 @@ export default class WardScene extends Phaser.Scene {
       // Doors N/E/S/W
       this.doors = [];
       this.drawDoors();
+
+      // Minimap (bottom-right)
+      this.currentIndex = 0;
+      this.visited = new Set([`0,0`]);
+      this.miniMapVisible = true;
+      this.miniMap = this.add.graphics({ x: 800 - 160, y: 600 - 80, alpha: 0.6 });
+      this.drawMiniMap();
+      this.input.keyboard.on('keydown-M', () => {
+        this.miniMapVisible = !this.miniMapVisible;
+        this.miniMap.setVisible(this.miniMapVisible);
+      });
 
       this.shards = this.physics.add.group();
       for (const l of this.layout.loot.filter(l => l.type === 'shard')) {
@@ -208,11 +220,13 @@ export default class WardScene extends Phaser.Scene {
         this.physics.add.existing(rect, true);
         this.doors.push(rect);
         this.add.text(d.x, d.y - (h / 2) - 12, unlocked ? 'Door (unlocked)' : 'Door (locked)', { fontSize: '12px', color: '#fff' }).setOrigin(0.5);
-        this.physics.add.overlap(this.player, rect, () => this.transitionRoom());
+        this.physics.add.overlap(this.player, rect, () => this.transitionRoom(d.dir));
       }
     }
 
-    transitionRoom() {
+    transitionRoom(dir) {
+      if (this.transitioning) return;
+      this.transitioning = true;
       // Phase-1 line: move forward until boss then exit
       const current = this.currentIndex ?? 0;
       const nextIndex = Math.min((current + 1), 5);
@@ -220,18 +234,28 @@ export default class WardScene extends Phaser.Scene {
       const id = `${nextIndex},0`;
       this.cameras.main.fadeOut(250, 0, 0, 0);
       this.cameras.main.once(Phaser.Cameras.Scene2D.Events.FADE_OUT_COMPLETE, () => {
-        this.player.setPosition(60, 300);
+        // Spawn at opposite edge of the door used
+        const spawnFrom = dir;
+        if (spawnFrom === 'E') this.player.setPosition(40, 300);
+        else if (spawnFrom === 'W') this.player.setPosition(760, 300);
+        else if (spawnFrom === 'N') this.player.setPosition(400, 560);
+        else if (spawnFrom === 'S') this.player.setPosition(400, 40);
         this.drawCurrentRoom();
         this.drawDoors();
+        this.visited.add(id);
+        this.drawMiniMap();
         this.cameras.main.fadeIn(200, 0, 0, 0);
+        this.transitioning = false;
       });
       if (id === this.layout.bossRoom.id) this.showBeat('Boss ahead…');
       if (id === this.layout.exitRoom.id) this.showBeat('Exit nearby');
     }
 
     showBeat(text) {
+      if (this.beatText) this.beatText.destroy();
       const t = this.add.text(this.player.x, this.player.y - 40, text, { fontSize: '14px', color: '#fff' }).setOrigin(0.5);
-      this.tweens.add({ targets: t, alpha: 0, y: t.y - 30, duration: 900, onComplete: () => t.destroy() });
+      this.beatText = t;
+      this.tweens.add({ targets: t, alpha: 0, y: t.y - 30, duration: 900, onComplete: () => { t.destroy(); if (this.beatText === t) this.beatText = null; } });
     }
 
     spawnBossDoor() {
@@ -255,6 +279,27 @@ export default class WardScene extends Phaser.Scene {
         loadout,
         layer: this.layerName
       });
+    }
+
+    drawMiniMap() {
+      if (!this.miniMapVisible) return;
+      const g = this.miniMap;
+      g.clear();
+      const cellW = 20, cellH = 14;
+      const originX = 8, originY = 8;
+      for (let i = 0; i < 6; i++) {
+        const id = `${i},0`;
+        const x = originX + i * (cellW + 4);
+        const y = originY;
+        const isCurrent = i === (this.currentIndex ?? 0);
+        const visited = this.visited.has(id);
+        const color = isCurrent ? 0x27ae60 : (visited ? 0x2980b9 : 0x34495e);
+        g.fillStyle(color, 1);
+        g.fillRect(x, y, cellW, cellH);
+      }
+      // Border
+      g.lineStyle(1, 0xffffff, 0.6);
+      g.strokeRect(4, 4, 6 * (cellW + 4) + 4, cellH + 8);
     }
   }
   
