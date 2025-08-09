@@ -66,7 +66,7 @@ export default class WardScene extends Phaser.Scene {
       this.drawCurrentRoom();
 
       // Doors N/E/S/W
-      this.doors = this.physics.add.group();
+      this.doors = [];
       this.drawDoors();
 
       this.shards = this.physics.add.group();
@@ -188,7 +188,11 @@ export default class WardScene extends Phaser.Scene {
     }
 
     drawDoors() {
-      this.doors.clear(true, true);
+      // Destroy existing door objects
+      if (this.doors && this.doors.length) {
+        for (const d of this.doors) d.destroy();
+      }
+      this.doors = [];
       const neighbors = [
         { dir: 'W', x: 20, y: 300 },
         { dir: 'E', x: 780, y: 300 },
@@ -202,10 +206,10 @@ export default class WardScene extends Phaser.Scene {
         const h = d.dir === 'N' || d.dir === 'S' ? 20 : 60;
         const rect = this.add.rectangle(d.x, d.y, w, h, color);
         this.physics.add.existing(rect, true);
-        this.doors.add(rect);
+        this.doors.push(rect);
         this.add.text(d.x, d.y - (h / 2) - 12, unlocked ? 'Door (unlocked)' : 'Door (locked)', { fontSize: '12px', color: '#fff' }).setOrigin(0.5);
+        this.physics.add.overlap(this.player, rect, () => this.transitionRoom());
       }
-      this.physics.add.overlap(this.player, this.doors, () => this.transitionRoom());
     }
 
     transitionRoom() {
