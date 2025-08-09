@@ -1,8 +1,11 @@
 import Phaser from 'phaser';
 import BootScene from './scenes/BootScene.js';
 import MenuScene from './scenes/MenuScene.js';
+import StoryScene from './scenes/StoryScene.js';
 import WardScene from './scenes/WardScene.js';
 import DreamScene from './scenes/DreamScene.js';
+import BossScene from './scenes/BossScene.js';
+import UIScene from './scenes/UIScene.js';
 
 const config = {
   type: Phaser.AUTO,
@@ -15,7 +18,7 @@ const config = {
       debug: true
     }
   },
-  scene: [BootScene, MenuScene, WardScene, DreamScene]
+  scene: [BootScene, MenuScene, StoryScene, WardScene, DreamScene, BossScene, UIScene]
 };
 
 new Phaser.Game(config);
