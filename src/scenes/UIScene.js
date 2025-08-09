@@ -33,6 +33,10 @@ export default class UIScene extends Phaser.Scene {
         this.add.text(400, 300, `Discharge Summary\nSeed: ${seed}\nTime: ${durationSec}s\nTraits: ${traits.join(', ')}\nResult: ${result}`, { fontSize: '16px', color: '#fff', align: 'center' }).setOrigin(0.5);
       });
     });
+
+    // Provide a handle back to WardScene to emit HUD updates immediately
+    const ward = this.scene.get('WardScene');
+    if (ward) ward.ui = this;
   }
 }
 

@@ -70,6 +70,7 @@ export default class WardScene extends Phaser.Scene {
         shard.destroy();
         this.collectedShards = (this.collectedShards || 0) + 1;
         this.showBeat(`Coping Shard ${this.collectedShards}/3`);
+        this.updateHUD();
         if (this.collectedShards >= 3) this.spawnBossDoor();
       });
 
@@ -157,6 +158,18 @@ export default class WardScene extends Phaser.Scene {
         this.scene.start('BossScene', { seed: this.seed, entry: { x, y } });
       });
       this.showBeat('The ward boss stirs…');
+    }
+
+    updateHUD() {
+      if (!this.ui) return;
+      const audit = '--:--';
+      const loadout = `${this.weapon?.name || 'Unarmed'} | Shards: ${this.collectedShards || 0}/3 | Traits: ${this.traits.join(', ')}`;
+      this.ui.events.emit('updateHUD', {
+        health: Math.round(this.health),
+        insight: Math.floor(this.insight),
+        audit,
+        loadout
+      });
     }
   }
   
