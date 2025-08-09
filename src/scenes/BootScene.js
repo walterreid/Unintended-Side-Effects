@@ -14,9 +14,6 @@ export default class BootScene extends Phaser.Scene {
       g.fillStyle(0x77aaff, 1);
       g.fillRect(0, 0, 20, 20);
       g.generateTexture('player', 20, 20);
-
-      // Basic sounds
-      this.load.audio('pa_crackle', 'assets/audio/pa_crackle.mp3');
     }
   
     create() {
