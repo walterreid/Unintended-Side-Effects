@@ -25,65 +25,55 @@ export function createRng(seed) {
 
 export function generateWardLayout(seed, options = {}) {
   const rng = createRng(seed);
-  const roomCount = options.roomCount ?? 9;
-  const gridSize = options.gridSize ?? 4; // smaller logical grid
   const rooms = [];
   const doors = [];
   const loot = [];
   const enemies = [];
   const roomType = {}; // id -> 'start'|'combat'|'loot'|'event'|'boss'|'exit'
 
-  // pick distinct logical coordinates for rooms
-  const coords = new Set();
-  while (coords.size < roomCount) {
-    const x = Math.floor(rng() * gridSize);
-    const y = Math.floor(rng() * gridSize);
-    coords.add(`${x},${y}`);
-  }
-  const coordList = Array.from(coords).map(s => {
-    const [x, y] = s.split(',').map(Number);
-    return { x, y };
-  });
-
-  // Ensure connectivity via MST-like linking
-  const connected = new Set([`${coordList[0].x},${coordList[0].y}`]);
-  const edges = [];
-  while (connected.size < coordList.length) {
-    let best = null;
-    for (const a of coordList) {
-      for (const b of coordList) {
-        const keyA = `${a.x},${a.y}`;
-        const keyB = `${b.x},${b.y}`;
-        if (keyA === keyB) continue;
-        const oneIn = connected.has(keyA) ^ connected.has(keyB);
-        if (!oneIn) continue;
-        const dx = a.x - b.x;
-        const dy = a.y - b.y;
-        const dist = dx * dx + dy * dy + rng() * 0.01;
-        if (!best || dist < best.dist) best = { a, b, dist };
-      }
+  let playerStart, bossRoom, exitRoom, shardRooms;
+  if (options.phase1Line) {
+    // Deterministic 6-room line: start → combat → loot → combat → boss → exit
+    const coordList = Array.from({ length: 6 }, (_, i) => ({ x: i, y: 0 }));
+    for (const c of coordList) rooms.push({ id: `${c.x},${c.y}`, x: c.x, y: c.y });
+    for (let i = 0; i < coordList.length - 1; i++) {
+      doors.push({ from: `${coordList[i].x},${coordList[i].y}`, to: `${coordList[i + 1].x},${coordList[i + 1].y}` });
     }
-    if (best) {
-      edges.push(best);
-      connected.add(`${best.a.x},${best.a.y}`);
-      connected.add(`${best.b.x},${best.b.y}`);
-    } else break;
+    playerStart = rooms[0];
+    bossRoom = rooms[4];
+    exitRoom = rooms[5];
+    shardRooms = [rooms[1], rooms[2], rooms[3]];
+    roomType[rooms[0].id] = 'start';
+    roomType[rooms[1].id] = 'combat';
+    roomType[rooms[2].id] = 'loot';
+    roomType[rooms[3].id] = 'combat';
+    roomType[rooms[4].id] = 'boss';
+    roomType[rooms[5].id] = 'exit';
+  } else {
+    const roomCount = options.roomCount ?? 9;
+    const gridSize = options.gridSize ?? 4;
+    // pick distinct logical coordinates for rooms
+    const coords = new Set();
+    while (coords.size < roomCount) {
+      const x = Math.floor(rng() * gridSize);
+      const y = Math.floor(rng() * gridSize);
+      coords.add(`${x},${y}`);
+    }
+    const coordList = Array.from(coords).map(s => {
+      const [x, y] = s.split(',').map(Number);
+      return { x, y };
+    });
+    // simple connectivity chain for now
+    for (const c of coordList) rooms.push({ id: `${c.x},${c.y}`, x: c.x, y: c.y });
+    for (let i = 0; i < coordList.length - 1; i++) {
+      doors.push({ from: `${coordList[i].x},${coordList[i].y}`, to: `${coordList[i + 1].x},${coordList[i + 1].y}` });
+    }
+    const shuffled = [...rooms].sort(() => rng() - 0.5);
+    playerStart = rooms[0];
+    bossRoom = shuffled[0];
+    shardRooms = shuffled.slice(1, 4);
+    exitRoom = shuffled[4] || rooms[rooms.length - 1];
   }
-
-  // Build rooms and doors
-  for (const c of coordList) {
-    rooms.push({ id: `${c.x},${c.y}`, x: c.x, y: c.y });
-  }
-  for (const e of edges) {
-    doors.push({ from: `${e.a.x},${e.a.y}`, to: `${e.b.x},${e.b.y}` });
-  }
-
-  // Place shards (3), player start (first room), boss (last room)
-  const shuffled = [...rooms].sort(() => rng() - 0.5);
-  const playerStart = rooms[0];
-  const bossRoom = shuffled[0];
-  const shardRooms = shuffled.slice(1, 4);
-  const exitRoom = shuffled[4] || rooms[rooms.length - 1];
 
   for (const r of shardRooms) loot.push({ type: 'shard', roomId: r.id });
 
@@ -121,7 +111,6 @@ export function generateWardLayout(seed, options = {}) {
 
   return {
     seed,
-    gridSize,
     rooms,
     doors,
     loot,

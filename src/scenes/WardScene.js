@@ -17,9 +17,11 @@ export default class WardScene extends Phaser.Scene {
     create() {
       // Layout
       this.rng = createRng(this.seed);
-      this.layout = generateWardLayout(this.seed);
-      this.roomSize = 480;
+      this.layout = generateWardLayout(this.seed, { phase1Line: true });
+      this.roomSize = 600; // render 800x600 room; floor drawn separately
 
+      this.layerName = 'Awake';
+      this.layerSwapCooldownUntil = 0;
       this.cameras.main.setBackgroundColor('#101418');
       this.add.text(10, 10, `Awake Layer | Seed: ${this.seed}`, { fontSize: '14px', color: '#fff' });
 
@@ -30,8 +32,8 @@ export default class WardScene extends Phaser.Scene {
       this.health = this.stats.maxHealth;
       this.insight = 0;
 
-      const startX = this.layout.playerStart.x * this.roomSize + this.roomSize / 2;
-      const startY = this.layout.playerStart.y * this.roomSize + this.roomSize / 2;
+      const startX = 400; // center of first room
+      const startY = 300;
       this.player = this.physics.add.sprite(startX, startY, 'player').setScale(0.5);
       this.player.setCollideWorldBounds(true);
 
@@ -61,7 +63,11 @@ export default class WardScene extends Phaser.Scene {
 
       // Objects: shards, loot, enemies (minimal spawns as colored rectangles)
       this.roomGraphics = this.add.graphics();
-      this.drawRooms();
+      this.drawCurrentRoom();
+
+      // Doors N/E/S/W
+      this.doors = this.physics.add.group();
+      this.drawDoors();
 
       this.shards = this.physics.add.group();
       for (const l of this.layout.loot.filter(l => l.type === 'shard')) {
@@ -139,9 +145,13 @@ export default class WardScene extends Phaser.Scene {
         this.isDashing = false;
       }
 
-      // Swap layers
-      if (Phaser.Input.Keyboard.JustDown(this.keys.Q)) {
-        this.scene.start('DreamScene', { seed: this.seed, x: this.player.x, y: this.player.y });
+      // Swap layers with Insight cost and cooldown
+      if (Phaser.Input.Keyboard.JustDown(this.keys.Q) && this.insight > 0 && time > this.layerSwapCooldownUntil) {
+        this.insight -= 1;
+        this.layerName = this.layerName === 'Awake' ? 'Dream' : 'Awake';
+        this.layerSwapCooldownUntil = time + 3000;
+        this.cameras.main.setBackgroundColor(this.layerName === 'Awake' ? '#101418' : '#2a1f36');
+        this.updateHUD();
       }
 
       // TODO: enemies basic chase later
@@ -152,15 +162,54 @@ export default class WardScene extends Phaser.Scene {
       return { x: x * this.roomSize + this.roomSize / 2, y: y * this.roomSize + this.roomSize / 2 };
     }
 
-    drawRooms() {
+    drawCurrentRoom() {
       this.roomGraphics.clear();
-      const color = 0x1e2630;
-      for (const r of this.layout.rooms) {
-        const x = r.x * this.roomSize;
-        const y = r.y * this.roomSize;
-        this.roomGraphics.fillStyle(color, 1);
-        this.roomGraphics.fillRect(x + 2, y + 2, this.roomSize - 4, this.roomSize - 4);
+      // Floor and walls for a single room at screen center 800x600
+      this.roomGraphics.fillStyle(0x1c1f24, 1);
+      this.roomGraphics.fillRect(0, 0, 800, 600);
+      this.roomGraphics.fillStyle(0x000000, 1);
+      this.roomGraphics.fillRect(0, 0, 800, 10);
+      this.roomGraphics.fillRect(0, 590, 800, 10);
+      this.roomGraphics.fillRect(0, 0, 10, 600);
+      this.roomGraphics.fillRect(790, 0, 10, 600);
+    }
+
+    drawDoors() {
+      this.doors.clear(true, true);
+      const neighbors = [
+        { dir: 'W', x: 20, y: 300 },
+        { dir: 'E', x: 780, y: 300 },
+        { dir: 'N', x: 400, y: 20 },
+        { dir: 'S', x: 400, y: 580 }
+      ];
+      for (const d of neighbors) {
+        const unlocked = true; // Phase-1: always unlocked until boss/audit logic layered in
+        const color = unlocked ? 0x27ae60 : 0xe74c3c;
+        const w = d.dir === 'N' || d.dir === 'S' ? 60 : 20;
+        const h = d.dir === 'N' || d.dir === 'S' ? 20 : 60;
+        const rect = this.add.rectangle(d.x, d.y, w, h, color);
+        this.physics.add.existing(rect, true);
+        this.doors.add(rect);
+        this.add.text(d.x, d.y - (h / 2) - 12, unlocked ? 'Door (unlocked)' : 'Door (locked)', { fontSize: '12px', color: '#fff' }).setOrigin(0.5);
       }
+      this.physics.add.overlap(this.player, this.doors, () => this.transitionRoom());
+    }
+
+    transitionRoom() {
+      // Phase-1 line: move forward until boss then exit
+      const current = this.currentIndex ?? 0;
+      const nextIndex = Math.min((current + 1), 5);
+      this.currentIndex = nextIndex;
+      const id = `${nextIndex},0`;
+      this.cameras.main.fadeOut(250, 0, 0, 0);
+      this.cameras.main.once(Phaser.Cameras.Scene2D.Events.FADE_OUT_COMPLETE, () => {
+        this.player.setPosition(60, 300);
+        this.drawCurrentRoom();
+        this.drawDoors();
+        this.cameras.main.fadeIn(200, 0, 0, 0);
+      });
+      if (id === this.layout.bossRoom.id) this.showBeat('Boss ahead…');
+      if (id === this.layout.exitRoom.id) this.showBeat('Exit nearby');
     }
 
     showBeat(text) {
@@ -186,7 +235,8 @@ export default class WardScene extends Phaser.Scene {
         health: Math.round(this.health),
         insight: Math.floor(this.insight),
         audit,
-        loadout
+        loadout,
+        layer: this.layerName
       });
     }
   }

@@ -12,13 +12,15 @@ export default class UIScene extends Phaser.Scene {
   create() {
     this.healthText = this.add.text(10, 8, 'HP: 100', { fontSize: '14px', color: '#fff' }).setScrollFactor(0);
     this.insightText = this.add.text(120, 8, 'Insight: 0', { fontSize: '14px', color: '#fff' }).setScrollFactor(0);
-    this.auditText = this.add.text(260, 8, 'Audit: --:--', { fontSize: '14px', color: '#ff7777' }).setScrollFactor(0);
+    this.layerText = this.add.text(240, 8, 'Layer: Awake', { fontSize: '14px', color: '#9cf' }).setScrollFactor(0);
+    this.auditText = this.add.text(360, 8, 'Audit: --:--', { fontSize: '14px', color: '#ff7777' }).setScrollFactor(0);
     this.inventoryText = this.add.text(10, 28, 'Loadout: -', { fontSize: '14px', color: '#aaa' }).setScrollFactor(0);
 
     this.events.on('updateHUD', (hud) => {
       if (hud.health != null) this.healthText.setText(`HP: ${hud.health}`);
       if (hud.insight != null) this.insightText.setText(`Insight: ${hud.insight}`);
       if (hud.audit != null) this.auditText.setText(`Audit: ${hud.audit}`);
+      if (hud.layer != null) this.layerText.setText(`Layer: ${hud.layer}`);
       if (hud.loadout != null) this.inventoryText.setText(`Loadout: ${hud.loadout}`);
     });
 
