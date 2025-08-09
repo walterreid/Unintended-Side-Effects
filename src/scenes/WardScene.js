@@ -17,8 +17,9 @@ export default class WardScene extends Phaser.Scene {
     create() {
       // Layout
       this.rng = createRng(this.seed);
-      this.layout = generateWardLayout(this.seed, { phase1Line: true });
+      this.layout = generateWardLayout(this.seed, { gridSize: 3, roomCount: 8 });
       this.roomSize = 600; // render 800x600 room; floor drawn separately
+      this.currentId = this.layout.playerStart.id;
 
       this.layerName = 'Awake';
       this.layerSwapCooldownUntil = 0;
@@ -71,8 +72,7 @@ export default class WardScene extends Phaser.Scene {
       this.drawDoors();
 
       // Minimap (bottom-right)
-      this.currentIndex = 0;
-      this.visited = new Set([`0,0`]);
+      this.visited = new Set([this.currentId]);
       this.miniMapVisible = true;
       this.miniMap = this.add.graphics({ x: 800 - 160, y: 600 - 80, alpha: 0.6 });
       this.drawMiniMap();
@@ -205,33 +205,33 @@ export default class WardScene extends Phaser.Scene {
         for (const d of this.doors) d.destroy();
       }
       this.doors = [];
-      const neighbors = [
-        { dir: 'W', x: 20, y: 300 },
-        { dir: 'E', x: 780, y: 300 },
-        { dir: 'N', x: 400, y: 20 },
-        { dir: 'S', x: 400, y: 580 }
+      const neighborDefs = [
+        { dir: 'W', x: 20, y: 300, dx: -1, dy: 0 },
+        { dir: 'E', x: 780, y: 300, dx: 1, dy: 0 },
+        { dir: 'N', x: 400, y: 20, dx: 0, dy: -1 },
+        { dir: 'S', x: 400, y: 580, dx: 0, dy: 1 }
       ];
-      for (const d of neighbors) {
+      const [cx, cy] = this.currentId.split(',').map(Number);
+      for (const d of neighborDefs) {
+        const nid = `${cx + d.dx},${cy + d.dy}`;
+        const connected = this.layout.adjacency[this.currentId]?.includes(nid);
         const unlocked = true; // Phase-1: always unlocked until boss/audit logic layered in
-        const color = unlocked ? 0x27ae60 : 0xe74c3c;
+        const color = connected && unlocked ? 0x27ae60 : 0xe74c3c;
         const w = d.dir === 'N' || d.dir === 'S' ? 60 : 20;
         const h = d.dir === 'N' || d.dir === 'S' ? 20 : 60;
         const rect = this.add.rectangle(d.x, d.y, w, h, color);
         this.physics.add.existing(rect, true);
         this.doors.push(rect);
-        this.add.text(d.x, d.y - (h / 2) - 12, unlocked ? 'Door (unlocked)' : 'Door (locked)', { fontSize: '12px', color: '#fff' }).setOrigin(0.5);
-        this.physics.add.overlap(this.player, rect, () => this.transitionRoom(d.dir));
+        this.add.text(d.x, d.y - (h / 2) - 12, connected && unlocked ? 'Door (unlocked)' : 'Door (locked)', { fontSize: '12px', color: '#fff' }).setOrigin(0.5);
+        if (connected && unlocked) this.physics.add.overlap(this.player, rect, () => this.transitionRoom(nid, d.dir));
       }
     }
 
-    transitionRoom(dir) {
+    transitionRoom(nextId, dir) {
       if (this.transitioning) return;
       this.transitioning = true;
-      // Phase-1 line: move forward until boss then exit
-      const current = this.currentIndex ?? 0;
-      const nextIndex = Math.min((current + 1), 5);
-      this.currentIndex = nextIndex;
-      const id = `${nextIndex},0`;
+      const id = nextId;
+      this.currentId = id;
       this.cameras.main.fadeOut(250, 0, 0, 0);
       this.cameras.main.once(Phaser.Cameras.Scene2D.Events.FADE_OUT_COMPLETE, () => {
         // Spawn at opposite edge of the door used
@@ -285,21 +285,27 @@ export default class WardScene extends Phaser.Scene {
       if (!this.miniMapVisible) return;
       const g = this.miniMap;
       g.clear();
-      const cellW = 20, cellH = 14;
-      const originX = 8, originY = 8;
-      for (let i = 0; i < 6; i++) {
-        const id = `${i},0`;
-        const x = originX + i * (cellW + 4);
-        const y = originY;
-        const isCurrent = i === (this.currentIndex ?? 0);
+      const cell = 10;
+      const padding = 6;
+      const xs = this.layout.rooms.map(r => r.x);
+      const ys = this.layout.rooms.map(r => r.y);
+      const minX = Math.min(...xs), maxX = Math.max(...xs);
+      const minY = Math.min(...ys), maxY = Math.max(...ys);
+      const width = (maxX - minX + 1) * (cell + 2) + padding * 2;
+      const height = (maxY - minY + 1) * (cell + 2) + padding * 2;
+      // Border
+      g.lineStyle(1, 0xffffff, 0.6);
+      g.strokeRect(0, 0, width, height);
+      for (const r of this.layout.rooms) {
+        const x = (r.x - minX) * (cell + 2) + padding;
+        const y = (r.y - minY) * (cell + 2) + padding;
+        const id = r.id;
+        const isCurrent = id === this.currentId;
         const visited = this.visited.has(id);
         const color = isCurrent ? 0x27ae60 : (visited ? 0x2980b9 : 0x34495e);
         g.fillStyle(color, 1);
-        g.fillRect(x, y, cellW, cellH);
+        g.fillRect(x, y, cell, cell);
       }
-      // Border
-      g.lineStyle(1, 0xffffff, 0.6);
-      g.strokeRect(4, 4, 6 * (cellW + 4) + 4, cellH + 8);
     }
   }
   

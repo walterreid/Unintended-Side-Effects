@@ -50,8 +50,8 @@ export function generateWardLayout(seed, options = {}) {
     roomType[rooms[4].id] = 'boss';
     roomType[rooms[5].id] = 'exit';
   } else {
-    const roomCount = options.roomCount ?? 9;
-    const gridSize = options.gridSize ?? 4;
+    const roomCount = options.roomCount ?? 8;
+    const gridSize = options.gridSize ?? 3; // small NxN like 3x3
     // pick distinct logical coordinates for rooms
     const coords = new Set();
     while (coords.size < roomCount) {
@@ -63,10 +63,51 @@ export function generateWardLayout(seed, options = {}) {
       const [x, y] = s.split(',').map(Number);
       return { x, y };
     });
-    // simple connectivity chain for now
+    // Ensure connectivity using greedy linking but restrict to orth adjacency only
+    const connected = new Set([`${coordList[0].x},${coordList[0].y}`]);
+    const available = new Set(coordList.map(c => `${c.x},${c.y}`));
     for (const c of coordList) rooms.push({ id: `${c.x},${c.y}`, x: c.x, y: c.y });
-    for (let i = 0; i < coordList.length - 1; i++) {
-      doors.push({ from: `${coordList[i].x},${coordList[i].y}`, to: `${coordList[i + 1].x},${coordList[i + 1].y}` });
+    while (connected.size < coordList.length) {
+      let best = null;
+      for (const a of coordList) {
+        for (const b of coordList) {
+          const keyA = `${a.x},${a.y}`;
+          const keyB = `${b.x},${b.y}`;
+          if (keyA === keyB) continue;
+          const oneIn = connected.has(keyA) ^ connected.has(keyB);
+          if (!oneIn) continue;
+          const dx = Math.abs(a.x - b.x);
+          const dy = Math.abs(a.y - b.y);
+          if (dx + dy !== 1) continue; // only orth neighbors
+          const dist = dx + dy + rng() * 0.01;
+          if (!best || dist < best.dist) best = { a, b, dist };
+        }
+      }
+      // if no orth neighbor link available, force-connect by moving towards nearest
+      if (!best) {
+        // Find nearest pair and add an intermediate room if space allows
+        let min = null;
+        for (const a of coordList) for (const b of coordList) {
+          const keyA = `${a.x},${a.y}`; const keyB = `${b.x},${b.y}`;
+          const oneIn = connected.has(keyA) ^ connected.has(keyB);
+          if (!oneIn) continue;
+          const dx = a.x - b.x; const dy = a.y - b.y;
+          const d2 = dx*dx + dy*dy;
+          if (!min || d2 < min.d2) min = { a, b, d2 };
+        }
+        if (min) {
+          const step = { x: min.a.x + Math.sign(min.b.x - min.a.x), y: min.a.y + Math.sign(min.b.y - min.a.y) };
+          const stepKey = `${step.x},${step.y}`;
+          if (available.has(stepKey) && !connected.has(stepKey)) {
+            doors.push({ from: `${min.a.x},${min.a.y}`, to: stepKey });
+            connected.add(stepKey);
+          }
+        }
+      } else {
+        doors.push({ from: `${best.a.x},${best.a.y}`, to: `${best.b.x},${best.b.y}` });
+        connected.add(`${best.a.x},${best.a.y}`);
+        connected.add(`${best.b.x},${best.b.y}`);
+      }
     }
     const shuffled = [...rooms].sort(() => rng() - 0.5);
     playerStart = rooms[0];
@@ -118,7 +159,8 @@ export function generateWardLayout(seed, options = {}) {
     roomType,
     playerStart,
     bossRoom,
-    exitRoom
+    exitRoom,
+    adjacency: buildAdjacency(doors)
   };
 }
 
